@@ -1,0 +1,64 @@
+version: '3'
+
+services:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: django_api_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456!
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data/
+    networks:
+      - mynetwork
+
+  api:
+    build: ./backend
+    entrypoint: /usr/src/app/entrypoint.sh
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - backend:/usr/src/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DEBUG=True
+      - DJANGO_DB_HOST=db
+      - DJANGO_DB_PORT=5432
+      - DJANGO_DB_NAME=django_api_db
+      - DJANGO_DB_USER=postgres
+      - DJANGO_DB_PASSWORD=123456!
+      - AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION=ap-southeast-1
+    networks:
+      - mynetwork
+
+  celery:
+    build: ./backend
+    command: celery -A backend worker -l INFO -Q order-processing-queue --prefetch-multiplier 1 -c 2 -O fair
+    volumes:
+      - backend:/usr/src/app
+    environment:
+      - DJANGO_DB_HOST=db
+      - DJANGO_DB_PORT=5432
+      - DJANGO_DB_NAME=django_api_db
+      - DJANGO_DB_USER=postgres
+      - DJANGO_DB_PASSWORD=123456!
+      - AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION=ap-southeast-1
+    depends_on:
+      - db
+    networks:
+      - mynetwork
+
+volumes:
+  backend:
+  pgdata:
+
+networks:
+  mynetwork:
